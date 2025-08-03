@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Code Playground</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            background: #f8f9fa;
+            color: #2d3748;
+            line-height: 1.6;
+        }
+        
+        .container {
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            grid-template-rows: 60px 1fr;
+            gap: 0;
+        }
+        
+        .header {
+            grid-column: 1 / -1;
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a202c;
+        }
+        
+        .sidebar {
+            background: #fff;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover {
+            background: #f7fafc;
+        }
+        
+        .filter-btn.active {
+            background: #3182ce;
+            color: white;
+            border-color: #3182ce;
+        }
+        
+        .snippet-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        
+        .snippet-item {
+            padding: 12px 16px;
+            margin: 2px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .snippet-item:hover {
+            background: #f7fafc;
+        }
+        
+        .snippet-item.active {
+            background: #ebf8ff;
+            color: #2b6cb0;
+        }
+        
+        .language-tag {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: #e2e8f0;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .language-tag.python {
+            background: #fed7d7;
+            color: #c53030;
+        }
+        
+        .language-tag.lua {
+            background: #bee3f8;
+            color: #2a69ac;
+        }
+        
+        .main-area {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            background: #fff;
+        }
+        
+        .info-bar {
+            padding: 16px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .snippet-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a202c;
+        }
+        
+        .snippet-desc {
+            font-size: 14px;
+            color: #718096;
+            margin-top: 4px;
+        }
+        
+        .editor-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            background: #e2e8f0;
+        }
+        
+        .panel {
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-header {
+            padding: 12px 16px;
+            background: #f7fafc;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .panel-content {
+            flex: 1;
+            padding: 16px;
+            position: relative;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: none;
+            background: transparent;
+        }
+        
+        .output-area {
+            background: #f7fafc;
+        }
+        
+        .output-content {
+            font-family: 'Monaco', 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            height: 100%;
+            color: #2d3748;
+        }
+        
+        .action-bar {
+            padding: 12px 24px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .run-btn {
+            padding: 8px 20px;
+            background: #48bb78;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .run-btn:hover:not(:disabled) {
+            background: #38a169;
+        }
+        
+        .run-btn:disabled {
+            background: #e2e8f0;
+            color: #a0aec0;
+            cursor: not-allowed;
+        }
+        
+        .clear-btn {
+            padding: 8px 16px;
+            background: transparent;
+            color: #718096;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .clear-btn:hover {
+            background: #f7fafc;
+        }
+        
+        .loading {
+            color: #718096;
+            font-style: italic;
+        }
+        
+        .error {
+            color: #e53e3e;
+        }
+        
+        .success {
+            color: #38a169;
+        }
+        
+        .empty-state {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #a0aec0;
+            font-size: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 60px auto 1fr;
+            }
+            
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid #e2e8f0;
+                max-height: 200px;
+            }
+            
+            .editor-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            Code Playground
+        </header>
+        
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <button class="filter-btn active" onclick="filterSnippets('all')">All</button>
+                <button class="filter-btn" onclick="filterSnippets('python')">Python</button>
+                <button class="filter-btn" onclick="filterSnippets('lua')">Lua</button>
+            </div>
+            <div class="snippet-list" id="snippetList">
+                <div class="empty-state">Loading snippets...</div>
+            </div>
+        </aside>
+        
+        <main class="main-area">
+            <div class="info-bar">
+                <div>
+                    <div class="snippet-title" id="snippetTitle">Select a snippet</div>
+                    <div class="snippet-desc" id="snippetDesc">Choose a code snippet from the sidebar to get started</div>
+                </div>
+                <div id="languageTag" style="display: none;"></div>
+            </div>
+            
+            <div class="editor-container">
+                <div class="panel">
+                    <div class="panel-header">Input</div>
+                    <div class="panel-content">
+                        <textarea id="inputText" placeholder="Enter your input here..." disabled></textarea>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <div class="panel-header">Output</div>
+                    <div class="panel-content output-area">
+                        <div class="output-content" id="outputText">Run a snippet to see the output</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-bar">
+                <button class="run-btn" id="runBtn" disabled onclick="runCode()">▶ Run</button>
+                <button class="clear-btn" onclick="clearIO()">Clear</button>
+                <span id="statusText"></span>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let snippets = [];
+        let selectedSnippet = null;
+        let currentFilter = 'all';
+
+        async function loadSnippets() {
+            try {
+                const response = await fetch('/list_snippets');
+                snippets = await response.json();
+                renderSnippets();
+            } catch (error) {
+                console.error('Error loading snippets:', error);
+                document.getElementById('snippetList').innerHTML = 
+                    '<div class="empty-state">Error loading snippets</div>';
+            }
+        }
+
+        function renderSnippets() {
+            const list = document.getElementById('snippetList');
+            const filtered = currentFilter === 'all' 
+                ? snippets 
+                : snippets.filter(s => s.language === currentFilter);
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<div class="empty-state">No snippets found</div>';
+                return;
+            }
+
+            list.innerHTML = filtered.map(snippet => `
+                <div class="snippet-item" onclick="selectSnippet(${JSON.stringify(snippet).replace(/"/g, '&quot;')})">
+                    <span>${snippet.title}</span>
+                    <span class="language-tag ${snippet.language}">${snippet.language}</span>
+                </div>
+            `).join('');
+        }
+
+        function filterSnippets(language) {
+            currentFilter = language;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            renderSnippets();
+        }
+
+        function selectSnippet(snippet) {
+            selectedSnippet = snippet;
+            
+            // Update UI
+            document.querySelectorAll('.snippet-item').forEach(item => item.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.getElementById('snippetTitle').textContent = snippet.title;
+            document.getElementById('snippetDesc').textContent = snippet.description;
+            
+            const tag = document.getElementById('languageTag');
+            tag.textContent = snippet.language.toUpperCase();
+            tag.className = `language-tag ${snippet.language}`;
+            tag.style.display = 'block';
+            
+            document.getElementById('inputText').disabled = false;
+            document.getElementById('runBtn').disabled = false;
+            
+            clearIO();
+        }
+
+        async function runCode() {
+            if (!selectedSnippet) return;
+
+            const runBtn = document.getElementById('runBtn');
+            const statusText = document.getElementById('statusText');
+            const outputText = document.getElementById('outputText');
+            
+            runBtn.disabled = true;
+            statusText.textContent = 'Running...';
+            statusText.className = 'loading';
+            outputText.textContent = '';
+
+            try {
+                const response = await fetch('/run', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        snippet_id: selectedSnippet.id,
+                        user_input: document.getElementById('inputText').value,
+                        language: selectedSnippet.language
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    outputText.textContent = 'Error: ' + data.error;
+                    outputText.className = 'output-content error';
+                    statusText.textContent = 'Error';
+                    statusText.className = 'error';
+                } else {
+                    outputText.textContent = data.output || '';
+                    outputText.className = 'output-content success';
+                    statusText.textContent = 'Completed';
+                    statusText.className = 'success';
+                }
+            } catch (error) {
+                outputText.textContent = 'Error: ' + error.message;
+                outputText.className = 'output-content error';
+                statusText.textContent = 'Connection error';
+                statusText.className = 'error';
+            } finally {
+                runBtn.disabled = false;
+                setTimeout(() => {
+                    statusText.textContent = '';
+                }, 3000);
+            }
+        }
+
+        function clearIO() {
+            document.getElementById('inputText').value = '';
+            document.getElementById('outputText').textContent = 'Run a snippet to see the output';
+            document.getElementById('outputText').className = 'output-content';
+            document.getElementById('statusText').textContent = '';
+        }
+
+        // Load snippets on page load
+        loadSnippets();
+    </script>
+</body>
+</html>
