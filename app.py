@@ -15,24 +15,26 @@ def list_snippets():
     
     # Python snippets
     if os.path.exists(PY_DIR):
-        for filename in os.listdir(PY_DIR):
-            if filename.endswith('.py'):
+        for filename in sorted(os.listdir(PY_DIR)):
+            name, ext = os.path.splitext(filename)
+            if ext.lower() == '.py':
                 snippets.append({
-                    'id': filename[:-3],
-                    'title': filename[:-3],
-                    'description': f'Python snippet: {filename[:-3]}',
+                    'id': name,
+                    'title': name,
+                    'description': f'Python snippet: {name}',
                     'language': 'python',
                     'filename': filename
                 })
     
     # Lua snippets
     if os.path.exists(LUA_DIR):
-        for filename in os.listdir(LUA_DIR):
-            if filename.endswith('.lua'):
+        for filename in sorted(os.listdir(LUA_DIR)):
+            name, ext = os.path.splitext(filename)
+            if ext.lower() == '.lua':
                 snippets.append({
-                    'id': filename[:-4],
-                    'title': filename[:-4],
-                    'description': f'Lua snippet: {filename[:-4]}',
+                    'id': name,
+                    'title': name,
+                    'description': f'Lua snippet: {name}',
                     'language': 'lua',
                     'filename': filename
                 })
@@ -54,7 +56,8 @@ def run_python_snippet(snippet_path, user_input):
             input=input_str,
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=5,
+            encoding='utf-8'
         )
         return {
             'output': result.stdout,
@@ -83,36 +86,32 @@ def run_lua_snippet(snippet_path, user_input):
             input_str = user_input.decode('utf-8')
         else:
             input_str = str(user_input)
-            
-        # Create a temporary file to hold the input data as a global variable
+
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.lua', delete=False) as temp_file:
-            # Write the input data as a global variable
-            temp_file.write(f'input_data = {repr(input_str)}\n')
-            
-            # Read the original snippet and append it
-            with open(snippet_path, 'r') as f:
-                lua_code = f.read()
-            temp_file.write(lua_code)
-            temp_file.flush()
-            
-            # Run with luajit using subprocess, inheriting environment
+        fd, temp_path = tempfile.mkstemp(suffix='.lua')
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as temp_file:
+                temp_file.write(f'input_data = {repr(input_str)}\n')
+                with open(snippet_path, 'r', encoding='utf-8') as f:
+                    lua_code = f.read()
+                temp_file.write(lua_code)
+
             result = subprocess.run(
-                ['luajit', temp_file.name],
+                ['luajit', temp_path],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                env=os.environ  # Inherit all environment variables including LUA_PATH/LUA_CPATH
+                env=os.environ,
+                encoding='utf-8'
             )
-            
-            # Clean up temp file
-            os.unlink(temp_file.name)
-            
-            return {
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None,
-                'success': result.returncode == 0
-            }
+        finally:
+            os.unlink(temp_path)
+
+        return {
+            'output': result.stdout,
+            'error': result.stderr if result.returncode != 0 else None,
+            'success': result.returncode == 0
+        }
     except subprocess.TimeoutExpired:
         return {
             'output': '',
