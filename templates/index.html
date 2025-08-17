@@ -293,9 +293,9 @@
         
         <aside class="sidebar">
             <div class="sidebar-header">
-                <button class="filter-btn active" onclick="filterSnippets('all')">All</button>
-                <button class="filter-btn" onclick="filterSnippets('python')">Python</button>
-                <button class="filter-btn" onclick="filterSnippets('lua')">Lua</button>
+                <button class="filter-btn active" onclick="filterSnippets('all', event)">All</button>
+                <button class="filter-btn" onclick="filterSnippets('python', event)">Python</button>
+                <button class="filter-btn" onclick="filterSnippets('lua', event)">Lua</button>
             </div>
             <div class="snippet-list" id="snippetList">
                 <div class="empty-state">Loading snippets...</div>
@@ -364,26 +364,26 @@
             }
 
             list.innerHTML = filtered.map(snippet => `
-                <div class="snippet-item" onclick="selectSnippet(${JSON.stringify(snippet).replace(/"/g, '&quot;')})">
+                <div class="snippet-item" onclick="selectSnippet(event, ${JSON.stringify(snippet).replace(/"/g, '&quot;')})">
                     <span>${snippet.title}</span>
                     <span class="language-tag ${snippet.language}">${snippet.language}</span>
                 </div>
             `).join('');
         }
 
-        function filterSnippets(language) {
+        function filterSnippets(language, evt) {
             currentFilter = language;
             document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            evt.target.classList.add('active');
             renderSnippets();
         }
 
-        function selectSnippet(snippet) {
+        function selectSnippet(evt, snippet) {
             selectedSnippet = snippet;
-            
+
             // Update UI
             document.querySelectorAll('.snippet-item').forEach(item => item.classList.remove('active'));
-            event.target.classList.add('active');
+            evt.target.classList.add('active');
             
             document.getElementById('snippetTitle').textContent = snippet.title;
             document.getElementById('snippetDesc').textContent = snippet.description;
@@ -458,7 +458,7 @@
         }
 
         // Load snippets on page load
-        loadSnippets();
+    loadSnippets();
     </script>
 </body>
 </html>
