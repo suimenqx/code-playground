@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template
 import os
 import subprocess
 import sys
+import shutil
 
 app = Flask(__name__)
 
@@ -89,30 +90,41 @@ def run_lua_snippet(snippet_path, user_input):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.lua', delete=False) as temp_file:
             # Write the input data as a global variable
             temp_file.write(f'input_data = {repr(input_str)}\n')
-            
+
             # Read the original snippet and append it
             with open(snippet_path, 'r') as f:
                 lua_code = f.read()
             temp_file.write(lua_code)
             temp_file.flush()
-            
-            # Run with luajit using subprocess, inheriting environment
-            result = subprocess.run(
-                ['luajit', temp_file.name],
-                capture_output=True,
-                text=True,
-                timeout=5,
-                env=os.environ  # Inherit all environment variables including LUA_PATH/LUA_CPATH
-            )
-            
-            # Clean up temp file
-            os.unlink(temp_file.name)
-            
+            temp_name = temp_file.name
+
+        # Determine available Lua interpreter (luajit preferred, fall back to lua)
+        interpreter = shutil.which('luajit') or shutil.which('lua')
+        if not interpreter:
+            os.unlink(temp_name)
             return {
-                'output': result.stdout,
-                'error': result.stderr if result.returncode != 0 else None,
-                'success': result.returncode == 0
+                'output': '',
+                'error': 'No Lua interpreter found (luajit or lua)',
+                'success': False
             }
+
+        # Run with the detected interpreter using subprocess, inheriting environment
+        result = subprocess.run(
+            [interpreter, temp_name],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            env=os.environ  # Inherit all environment variables including LUA_PATH/LUA_CPATH
+        )
+
+        # Clean up temp file
+        os.unlink(temp_name)
+
+        return {
+            'output': result.stdout,
+            'error': result.stderr if result.returncode != 0 else None,
+            'success': result.returncode == 0
+        }
     except subprocess.TimeoutExpired:
         return {
             'output': '',
