@@ -1,450 +1,51 @@
 package com.example.slicerush;
 
-import android.app.Activity;
-import android.os.Bundle;
-import android.graphics.*;
-import android.media.AudioManager;
-import android.media.ToneGenerator;
-import android.view.HapticFeedbackConstants;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.WindowManager;
-import java.util.ArrayList;
-import java.util.Random;
+import android.app.*;import android.os.*;import android.view.*;import android.graphics.*;import android.media.*;import java.util.*;
 
-public class MainActivity extends Activity {
-    private GameView gameView;
+public class MainActivity extends Activity{
+  GameView game;
+  public void onCreate(Bundle b){super.onCreate(b);getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);game=new GameView(this);setContentView(game);} 
+  protected void onPause(){super.onPause(); if(game!=null)game.loop=false;}
+  protected void onResume(){super.onResume(); if(game!=null){game.loop=true;game.last=0;game.postInvalidateOnAnimation();}}
 
-    @Override public void onCreate(Bundle b) {
-        super.onCreate(b);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        gameView = new GameView(this);
-        setContentView(gameView);
-    }
+  static class GameView extends View{
+    static final int READY=0,RUN=1,PAUSE=2,OVER=3;
+    Paint p=new Paint(1),t=new Paint(1),u=new Paint(1); Random r=new Random(); ToneGenerator tone;
+    ArrayList<Fruit> fruits=new ArrayList<>(); ArrayList<Half> halves=new ArrayList<>(); ArrayList<Part> parts=new ArrayList<>(); ArrayList<Trail> trail=new ArrayList<>(); ArrayList<Cube> cubes=new ArrayList<>();
+    RectF pause=new RectF(); long last; boolean loop=true; int state=READY,score=0,best=0,lives=4,combo=0,level=1; float spawn=.2f,msgT=0,comboT=0,shake=0,swishCd=0; String msg="";
+    GameView(android.content.Context c){super(c);setFocusable(true);setKeepScreenOn(true);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeJoin(Paint.Join.ROUND);t.setTypeface(Typeface.create(Typeface.SANS_SERIF,Typeface.BOLD));try{tone=new ToneGenerator(AudioManager.STREAM_MUSIC,85);}catch(Throwable e){tone=null;}}
+    protected void onSizeChanged(int w,int h,int oldw,int oldh){cubes.clear();for(int i=0;i<22;i++){Cube q=new Cube();q.x=r.nextFloat()*w;q.y=r.nextFloat()*h;q.s=45+r.nextFloat()*Math.min(w,h)*.16f;q.d=.32f+r.nextFloat()*.72f;q.rot=r.nextFloat()*360;q.spin=-8+r.nextFloat()*16;q.v=5+r.nextFloat()*16;cubes.add(q);}float sz=Math.min(w,h)*.115f;pause.set(24,h-sz-28,24+sz,h-28);} 
+    protected void onDraw(Canvas c){long n=System.nanoTime();float dt=last==0?.016f:Math.min(.034f,(n-last)/1e9f);last=n;update(dt);draw(c);if(loop)postInvalidateOnAnimation();}
+    void update(float dt){swishCd=Math.max(0,swishCd-dt);if(msgT>0)msgT-=dt;if(comboT>0)comboT-=dt;else combo=0;if(shake>0)shake-=dt;for(int i=trail.size()-1;i>=0;i--){trail.get(i).life-=dt*2.7f;if(trail.get(i).life<=0)trail.remove(i);}for(Cube q:cubes)q.update(dt,getWidth(),getHeight());if(state==RUN){level=1+score/15;spawn-=dt;if(spawn<=0){wave();spawn=Math.max(.34f,.95f-level*.045f-r.nextFloat()*.15f);}for(int i=fruits.size()-1;i>=0;i--){Fruit f=fruits.get(i);f.update(dt);if(f.y>getHeight()+f.rad*2){fruits.remove(i);if(!f.bomb){lives--;combo=0;comboT=0;burst(f.x,getHeight()-20,0x88ffffff,10,false);beep(ToneGenerator.TONE_PROP_NACK,80);performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);msg="MISS";msgT=.55f;if(lives<=0)over();}}}}for(int i=halves.size()-1;i>=0;i--){Half h=halves.get(i);h.update(dt);if(h.life<=0||h.y>getHeight()+180)halves.remove(i);}for(int i=parts.size()-1;i>=0;i--){Part a=parts.get(i);a.update(dt);if(a.life<=0)parts.remove(i);}}
+    void start(){state=RUN;score=0;lives=4;combo=0;level=1;spawn=.2f;msg="GO!";msgT=.8f;fruits.clear();halves.clear();parts.clear();trail.clear();beep(ToneGenerator.TONE_PROP_ACK,110);} 
+    void over(){state=OVER;best=Math.max(best,score);shake=.65f;msg="BOOM!";msgT=.7f;beep(ToneGenerator.TONE_SUP_ERROR,380);performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);} 
+    void togglePause(){if(state==RUN){state=PAUSE;msg="PAUSED";msgT=999;beep(ToneGenerator.TONE_PROP_BEEP2,55);}else if(state==PAUSE){state=RUN;msgT=0;beep(ToneGenerator.TONE_PROP_BEEP,55);}}
+    void wave(){int cnt=1+r.nextInt(Math.min(4,1+level/2));for(int i=0;i<cnt;i++){Fruit f=new Fruit();f.type=r.nextInt(4);f.bomb=score>=8&&r.nextFloat()<Math.min(.18f,.06f+level*.01f);f.rad=f.bomb?40+r.nextFloat()*10:46+r.nextFloat()*20;float lane=(i+1f)/(cnt+1f);f.x=80+lane*(getWidth()-160)+(-48+r.nextFloat()*96);f.y=getHeight()+f.rad+r.nextFloat()*80;f.vx=-245+r.nextFloat()*490;f.vy=-(980+r.nextFloat()*420+Math.min(280,level*25));f.g=920+r.nextFloat()*130;f.rot=r.nextFloat()*360;f.spin=-130+r.nextFloat()*260;fruits.add(f);}}
+    public boolean onTouchEvent(MotionEvent e){float x=e.getX(),y=e.getY();int a=e.getActionMasked();if(a==0){if(pause.contains(x,y)&&(state==RUN||state==PAUSE)){togglePause();return true;}if(state==READY||state==OVER)start();else if(state==PAUSE){togglePause();return true;}point(x,y,false);return true;}if(state!=RUN)return true;if(a==2){for(int i=0;i<e.getHistorySize();i++)point(e.getHistoricalX(i),e.getHistoricalY(i),true);point(x,y,true);return true;}if(a==1||a==3){trail.clear();return true;}return true;}
+    void point(float x,float y,boolean cut){if(!trail.isEmpty()){Trail o=trail.get(trail.size()-1);float d=dist(o.x,o.y,x,y);if(cut&&d>3){if(d>22&&swishCd<=0){beep(ToneGenerator.TONE_PROP_BEEP2,18);swishCd=.048f;}slice(o.x,o.y,x,y);}}trail.add(new Trail(x,y));while(trail.size()>22)trail.remove(0);} 
+    void slice(float x1,float y1,float x2,float y2){int hits=0;for(int i=fruits.size()-1;i>=0;i--){Fruit f=fruits.get(i);if(seg(f.x,f.y,x1,y1,x2,y2)<=f.rad+16){fruits.remove(i);if(f.bomb){burst(f.x,f.y,0xffff4d78,46,true);shake=.8f;over();return;}hits++;combo++;comboT=1.05f;score+=1+Math.max(0,combo-1)/2;spawnHalves(f);burst(f.x,f.y,f.color(),20,false);beep(ToneGenerator.TONE_PROP_ACK,35);performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);}}if(hits>1){score+=hits;msg="COMBO x"+hits;msgT=.7f;beep(ToneGenerator.TONE_CDMA_PIP,80);}}
+    void spawnHalves(Fruit f){for(int s=-1;s<=1;s+=2){Half h=new Half();h.type=f.type;h.left=s<0;h.x=f.x;h.y=f.y;h.rad=f.rad;h.rot=f.rot;h.spin=s*(120+r.nextFloat()*90);h.vx=f.vx*.25f+s*(160+r.nextFloat()*80);h.vy=f.vy*.1f-120-r.nextFloat()*60;halves.add(h);}}
+    void burst(float x,float y,int col,int n,boolean hot){for(int i=0;i<n;i++){float a=r.nextFloat()*6.28318f,sp=(hot?220:80)+r.nextFloat()*(hot?360:220);Part q=new Part();q.x=x;q.y=y;q.vx=(float)Math.cos(a)*sp;q.vy=(float)Math.sin(a)*sp;q.rad=(hot?4:3)+r.nextFloat()*(hot?10:8);q.life=(hot?.75f:.45f)+r.nextFloat()*(hot?.35f:.3f);q.col=col;parts.add(q);}}
+    void draw(Canvas c){c.save();if(shake>0){float m=shake*10;c.translate(-m+r.nextFloat()*2*m,-m+r.nextFloat()*2*m);}bg(c);for(Half h:halves)h.draw(c,p);for(Fruit f:fruits)f.draw(c,p);for(Part q:parts)q.draw(c,p);drawTrail(c);c.restore();hud(c);} 
+    void bg(Canvas c){int w=getWidth(),h=getHeight();p.setStyle(Paint.Style.FILL);p.setShader(new RadialGradient(w*.5f,h*.42f,Math.max(w,h)*.78f,new int[]{0xfff23b9d,0xff8c1dd8,0xff2c006c},new float[]{0,.48f,1},Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,p);p.setShader(null);for(Cube q:cubes)q.draw(c,p);p.setColor(0x28ffffff);for(int i=0;i<10;i++)c.drawCircle((i*191+37)%Math.max(1,w),(i*251+89)%Math.max(1,h),1.5f+i%3,p);} 
+    void drawTrail(Canvas c){if(trail.size()<2)return;Path path=new Path();Trail a=trail.get(0);path.moveTo(a.x,a.y);for(int i=1;i<trail.size();i++)path.lineTo(trail.get(i).x,trail.get(i).y);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(24);p.setColor(0x5520f6ff);c.drawPath(path,p);p.setStrokeWidth(10);p.setColor(0xffdcffff);c.drawPath(path,p);p.setStyle(Paint.Style.FILL);} 
+    void hud(Canvas c){int w=getWidth(),h=getHeight();t.setTextAlign(Paint.Align.LEFT);t.setTextSize(50);for(int i=0;i<4;i++){t.setColor(i<lives?0xffff4d5f:0x552c1235);c.drawText("❤",24+i*68,58,t);}RectF b=new RectF(w-176,18,w-18,82);u.setStyle(Paint.Style.FILL);u.setShader(new LinearGradient(b.left,b.top,b.right,b.bottom,0xaa1f0937,0xaa32104f,Shader.TileMode.CLAMP));c.drawRoundRect(b,26,26,u);u.setShader(null);u.setStyle(Paint.Style.STROKE);u.setStrokeWidth(2.5f);u.setColor(0x55ffffff);c.drawRoundRect(b,26,26,u);gem(c,b.right-28,b.centerY(),18);t.setTextAlign(Paint.Align.RIGHT);t.setTextSize(46);t.setColor(0xff5ceeff);c.drawText(""+score,b.right-42,b.top+47,t);pauseButton(c);if(combo>1&&comboT>0){t.setTextAlign(Paint.Align.CENTER);t.setTextSize(36+Math.min(16,combo*1.5f));t.setColor(0xfffff176);c.drawText("Combo x"+combo,w*.5f,108,t);}if(msgT>0&&msg.length()>0){t.setTextAlign(Paint.Align.CENTER);t.setTextSize(42);t.setColor(0xffffffff);c.drawText(msg,w*.5f,h*.18f,t);}if(state==READY)card(c,"Slice Rush","滑动切水果，避开炸弹","点击开始");else if(state==PAUSE)card(c,"Paused","再次点击继续","继续游戏");else if(state==OVER)card(c,"Game Over","得分 "+score+"   最高 "+best,"点击重开");}
+    void pauseButton(Canvas c){float cx=pause.centerX(),cy=pause.centerY(),rr=pause.width()/2;u.setStyle(Paint.Style.FILL);u.setShader(new RadialGradient(cx-rr*.25f,cy-rr*.25f,rr*1.25f,new int[]{0xff8eb7ff,0xff5664dd,0xff2e2968},new float[]{0,.65f,1},Shader.TileMode.CLAMP));c.drawCircle(cx,cy,rr,u);u.setShader(null);u.setStyle(Paint.Style.STROKE);u.setStrokeWidth(3);u.setColor(0x66ffffff);c.drawCircle(cx,cy,rr,u);u.setStyle(Paint.Style.FILL);u.setColor(0xffffffff);float bh=rr*.95f,bw=rr*.22f;c.drawRoundRect(new RectF(cx-rr*.32f-bw/2,cy-bh/2,cx-rr*.32f+bw/2,cy+bh/2),8,8,u);c.drawRoundRect(new RectF(cx+rr*.32f-bw/2,cy-bh/2,cx+rr*.32f+bw/2,cy+bh/2),8,8,u);} 
+    void card(Canvas c,String title,String sub,String hint){float w=getWidth(),h=getHeight();RectF card=new RectF(w*.14f,h*.32f,w*.86f,h*.60f);u.setStyle(Paint.Style.FILL);u.setShader(new LinearGradient(card.left,card.top,card.right,card.bottom,0xcc26103f,0xcc0b0623,Shader.TileMode.CLAMP));c.drawRoundRect(card,32,32,u);u.setShader(null);u.setStyle(Paint.Style.STROKE);u.setStrokeWidth(2.5f);u.setColor(0x55ffffff);c.drawRoundRect(card,32,32,u);t.setTextAlign(Paint.Align.CENTER);t.setTextSize(60);t.setColor(0xffffffff);c.drawText(title,w*.5f,card.top+78,t);t.setTextSize(30);t.setColor(0xffd9d9ff);c.drawText(sub,w*.5f,card.top+132,t);t.setTextSize(34);t.setColor(0xffffdc61);c.drawText(hint,w*.5f,card.top+196,t);} 
+    void gem(Canvas c,float cx,float cy,float rr){Path g=new Path();g.moveTo(cx,cy-rr);g.lineTo(cx+rr*.7f,cy-rr*.25f);g.lineTo(cx+rr*.52f,cy+rr*.85f);g.lineTo(cx-rr*.52f,cy+rr*.85f);g.lineTo(cx-rr*.7f,cy-rr*.25f);g.close();u.setStyle(Paint.Style.FILL);u.setShader(new LinearGradient(cx-rr,cy-rr,cx+rr,cy+rr,new int[]{0xff84ffff,0xff5ce1ff,0xff7f6dff},null,Shader.TileMode.CLAMP));c.drawPath(g,u);u.setShader(null);u.setStyle(Paint.Style.STROKE);u.setStrokeWidth(2);u.setColor(0x88ffffff);c.drawPath(g,u);} 
+    void beep(int kind,int ms){try{if(tone!=null)tone.startTone(kind,ms);}catch(Throwable e){}}float dist(float x1,float y1,float x2,float y2){return(float)Math.hypot(x2-x1,y2-y1);}float seg(float px,float py,float x1,float y1,float x2,float y2){float dx=x2-x1,dy=y2-y1,l=dx*dx+dy*dy;if(l<=.001f)return dist(px,py,x1,y1);float tt=((px-x1)*dx+(py-y1)*dy)/l;if(tt<0)tt=0;if(tt>1)tt=1;return dist(px,py,x1+tt*dx,y1+tt*dy);} }
 
-    @Override protected void onPause() {
-        super.onPause();
-        if (gameView != null) gameView.pauseGameLoop();
-    }
+  static class Trail{float x,y,life=1;Trail(float X,float Y){x=X;y=Y;}}
+  static class Cube{float x,y,s,d,v,rot,spin;void update(float dt,int w,int h){rot+=spin*dt;y+=v*dt*d;if(y-s>h+80)y=-s;}void draw(Canvas c,Paint p){c.save();c.translate(x,y);c.rotate(rot);float q=s*d;int a=(int)(60+90*d);Path f=new Path();f.moveTo(-q*.5f,-q*.5f);f.lineTo(q*.5f,-q*.5f);f.lineTo(q*.5f,q*.5f);f.lineTo(-q*.5f,q*.5f);f.close();p.setStyle(Paint.Style.FILL);p.setColor(Color.argb(a,50,8,105));c.drawPath(f,p);Path r=new Path();r.moveTo(q*.5f,-q*.5f);r.lineTo(q*.88f,-q*.24f);r.lineTo(q*.88f,q*.76f);r.lineTo(q*.5f,q*.5f);r.close();p.setColor(Color.argb(a+20,82,22,150));c.drawPath(r,p);Path top=new Path();top.moveTo(-q*.5f,-q*.5f);top.lineTo(-q*.12f,-q*.76f);top.lineTo(q*.88f,-q*.24f);top.lineTo(q*.5f,-q*.5f);top.close();p.setColor(Color.argb(a+35,115,40,186));c.drawPath(top,p);c.restore();}}
 
-    @Override protected void onResume() {
-        super.onResume();
-        if (gameView != null) gameView.resumeGameLoop();
-    }
+  static class Fruit{static final int PEACH=0,PINE=1,MELON=2,APPLE=3;float x,y,vx,vy,g,rad,rot,spin;boolean bomb;int type;void update(float dt){x+=vx*dt;y+=vy*dt;vy+=g*dt;rot+=spin*dt;}int color(){return type==PINE?0xffffd34f:type==MELON?0xff6adb4f:type==APPLE?0xffff6a7a:0xffff9a63;}void draw(Canvas c,Paint p){c.save();c.translate(x,y);c.rotate(rot);if(bomb)bomb(c,p);else if(type==PINE)pine(c,p);else if(type==MELON)melon(c,p);else if(type==APPLE)apple(c,p);else peach(c,p);c.restore();}
+    void peach(Canvas c,Paint p){Shader o=p.getShader();p.setStyle(Paint.Style.FILL);p.setShader(new RadialGradient(-rad*.25f,-rad*.3f,rad*1.2f,new int[]{0xffffdb9c,0xffff9770,0xfff45c80},null,Shader.TileMode.CLAMP));c.drawOval(new RectF(-rad*.82f,-rad*.74f,rad*.82f,rad*.94f),p);p.setShader(null);p.setColor(0x35ffffff);c.drawCircle(-rad*.18f,-rad*.24f,rad*.18f,p);p.setColor(0x33000000);c.drawOval(new RectF(-rad*.08f,-rad*.72f,rad*.1f,rad*.76f),p);stem(c,p);p.setShader(o);} 
+    void apple(Canvas c,Paint p){Shader o=p.getShader();p.setShader(new RadialGradient(-rad*.22f,-rad*.25f,rad*1.15f,new int[]{0xffffcf84,0xffff7e70,0xfff0566a},null,Shader.TileMode.CLAMP));Path a=new Path();a.moveTo(0,-rad*.92f);a.cubicTo(rad*.82f,-rad*1.02f,rad*.98f,-rad*.08f,rad*.76f,rad*.56f);a.cubicTo(rad*.58f,rad*.98f,rad*.15f,rad*1.02f,0,rad*.86f);a.cubicTo(-rad*.15f,rad*1.02f,-rad*.58f,rad*.98f,-rad*.76f,rad*.56f);a.cubicTo(-rad*.98f,-rad*.08f,-rad*.82f,-rad*1.02f,0,-rad*.92f);a.close();c.drawPath(a,p);p.setShader(null);p.setColor(0x35ffffff);c.drawCircle(-rad*.22f,-rad*.18f,rad*.19f,p);stem(c,p);p.setShader(o);} 
+    void pine(Canvas c,Paint p){p.setStyle(Paint.Style.FILL);p.setColor(0xff4cb845);for(int i=-2;i<=2;i++){Path l=new Path();l.moveTo(0,-rad*.42f);l.quadTo(i*rad*.16f,-rad*(1.15f+Math.abs(i)*.08f),i*rad*.33f,-rad*1.52f);l.quadTo(i*rad*.15f,-rad*1.12f,0,-rad*.42f);c.drawPath(l,p);}Shader o=p.getShader();p.setShader(new RadialGradient(-rad*.18f,-rad*.2f,rad*1.25f,new int[]{0xffffec89,0xfff7ba3e,0xffb36a1f},null,Shader.TileMode.CLAMP));c.drawOval(new RectF(-rad*.72f,-rad*.92f,rad*.72f,rad*.92f),p);p.setShader(null);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(2,rad*.05f));p.setColor(0x77a55b13);for(float yy=-rad*.74f;yy<=rad*.74f;yy+=rad*.26f){c.drawLine(-rad*.48f,yy-rad*.18f,rad*.48f,yy+rad*.18f,p);c.drawLine(-rad*.48f,yy+rad*.18f,rad*.48f,yy-rad*.18f,p);}p.setStyle(Paint.Style.FILL);p.setShader(o);} 
+    void melon(Canvas c,Paint p){Shader o=p.getShader();p.setShader(new RadialGradient(-rad*.25f,-rad*.25f,rad*1.2f,new int[]{0xff8fee69,0xff42b832,0xff156c17},null,Shader.TileMode.CLAMP));c.drawCircle(0,0,rad,p);p.setShader(null);p.setColor(0xff0e4f16);for(int i=-2;i<=2;i++)c.drawOval(new RectF(i*rad*.28f-rad*.12f,-rad*.92f,i*rad*.28f+rad*.12f,rad*.92f),p);p.setColor(0x33ffffff);c.drawCircle(-rad*.22f,-rad*.24f,rad*.17f,p);p.setShader(o);} 
+    void bomb(Canvas c,Paint p){Shader o=p.getShader();p.setShader(new RadialGradient(-rad*.25f,-rad*.3f,rad*1.25f,new int[]{0xff687287,0xff202532,0xff020305},null,Shader.TileMode.CLAMP));c.drawCircle(0,0,rad,p);p.setShader(null);p.setColor(0xff9ea7ba);c.drawCircle(-rad*.22f,-rad*.22f,rad*.17f,p);p.setStyle(Paint.Style.STROKE);p.setColor(0xffffcf54);p.setStrokeWidth(Math.max(4,rad*.09f));c.drawArc(new RectF(-rad*.18f,-rad*1.32f,rad*1.05f,-rad*.22f),195,115,false,p);p.setStyle(Paint.Style.FILL);p.setColor(0xffff7d2a);c.drawCircle(rad*.73f,-rad*1.0f,rad*.14f,p);p.setShader(o);} 
+    void stem(Canvas c,Paint p){p.setColor(0xff6b3d1e);c.drawRect(-3,-rad*1.05f,3,-rad*.66f,p);p.setColor(0xff65c455);c.drawOval(new RectF(rad*.06f,-rad*1.12f,rad*.58f,-rad*.75f),p);} }
 
-    static class GameView extends View {
-        static final int READY = 0, RUNNING = 1, GAME_OVER = 2;
-        final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
-        final Random rnd = new Random();
-        final ArrayList<Fruit> fruits = new ArrayList<>();
-        final ArrayList<Piece> pieces = new ArrayList<>();
-        final ArrayList<Particle> particles = new ArrayList<>();
-        final ArrayList<TrailPoint> trail = new ArrayList<>();
-        ToneGenerator tones;
-        long lastNs = 0L;
-        int state = READY, score = 0, best = 0, lives = 3, combo = 0, level = 1;
-        float spawnTimer = 0f, comboTimer = 0f, shake = 0f, messageTimer = 0f;
-        String message = "";
-        boolean loopRunning = true;
-
-        GameView(android.content.Context c) {
-            super(c);
-            setFocusable(true);
-            setKeepScreenOn(true);
-            p.setStrokeCap(Paint.Cap.ROUND);
-            text.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
-            try { tones = new ToneGenerator(AudioManager.STREAM_MUSIC, 70); } catch (Throwable ignored) { tones = null; }
-        }
-
-        void pauseGameLoop() { loopRunning = false; }
-        void resumeGameLoop() { loopRunning = true; lastNs = 0L; postInvalidateOnAnimation(); }
-
-        @Override protected void onDraw(Canvas c) {
-            long now = System.nanoTime();
-            float dt = lastNs == 0L ? 0.016f : Math.min(0.034f, (now - lastNs) / 1_000_000_000f);
-            lastNs = now;
-            update(dt);
-            drawGame(c);
-            if (loopRunning) postInvalidateOnAnimation();
-        }
-
-        void startGame() {
-            state = RUNNING;
-            score = 0; lives = 3; combo = 0; level = 1;
-            spawnTimer = 0.35f; comboTimer = 0f; shake = 0f; messageTimer = 1.2f; message = "开始！";
-            fruits.clear(); pieces.clear(); particles.clear(); trail.clear();
-            play(ToneGenerator.TONE_PROP_ACK, 90);
-        }
-
-        void gameOver() {
-            state = GAME_OVER;
-            best = Math.max(best, score);
-            shake = 0.6f;
-            messageTimer = 0f;
-            play(ToneGenerator.TONE_SUP_ERROR, 450);
-            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-        }
-
-        void update(float dt) {
-            fadeTrail(dt);
-            if (messageTimer > 0) messageTimer -= dt;
-            if (shake > 0) shake -= dt;
-            if (comboTimer > 0) comboTimer -= dt; else combo = 0;
-
-            if (state == RUNNING) {
-                level = 1 + score / 18;
-                spawnTimer -= dt;
-                if (spawnTimer <= 0) {
-                    spawnWave();
-                    spawnTimer = Math.max(0.42f, 1.18f - level * 0.055f - rnd.nextFloat() * 0.18f);
-                }
-
-                for (int i = fruits.size() - 1; i >= 0; i--) {
-                    Fruit f = fruits.get(i);
-                    f.update(dt);
-                    if (f.y > getHeight() + f.r * 2f) {
-                        fruits.remove(i);
-                        if (!f.bomb) {
-                            lives--;
-                            combo = 0; comboTimer = 0f;
-                            burst(f.x, getHeight() - 30f, 0x99ffffff, 8, false);
-                            play(ToneGenerator.TONE_PROP_NACK, 120);
-                            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-                            message = "漏掉水果！"; messageTimer = 0.65f;
-                            if (lives <= 0) gameOver();
-                        }
-                    }
-                }
-            }
-
-            for (int i = pieces.size() - 1; i >= 0; i--) {
-                Piece s = pieces.get(i);
-                s.update(dt);
-                if (s.life <= 0 || s.y > getHeight() + 180) pieces.remove(i);
-            }
-            for (int i = particles.size() - 1; i >= 0; i--) {
-                Particle part = particles.get(i);
-                part.update(dt);
-                if (part.life <= 0) particles.remove(i);
-            }
-        }
-
-        void spawnWave() {
-            int count = 1 + rnd.nextInt(Math.min(4, 1 + level / 2));
-            for (int i = 0; i < count; i++) spawnFruit(i, count);
-        }
-
-        void spawnFruit(int index, int count) {
-            float w = Math.max(1, getWidth()), h = Math.max(1, getHeight());
-            Fruit f = new Fruit();
-            f.type = rnd.nextInt(5);
-            f.bomb = score >= 4 && rnd.nextFloat() < Math.min(0.18f, 0.08f + level * 0.012f);
-            f.r = f.bomb ? 44f + rnd.nextFloat() * 8f : 48f + rnd.nextFloat() * 18f;
-            float lane = (index + 1f) / (count + 1f);
-            f.x = 70f + lane * (w - 140f) + (-45f + rnd.nextFloat() * 90f);
-            f.y = h + f.r + rnd.nextFloat() * 100f;
-            f.vx = -260f + rnd.nextFloat() * 520f;
-            f.vy = -(980f + rnd.nextFloat() * 420f + Math.min(320f, level * 28f));
-            f.gravity = 940f + rnd.nextFloat() * 140f;
-            f.rot = rnd.nextFloat() * 6.28f;
-            f.spin = -5f + rnd.nextFloat() * 10f;
-            fruits.add(f);
-        }
-
-        @Override public boolean onTouchEvent(MotionEvent e) {
-            int action = e.getActionMasked();
-            if (action == MotionEvent.ACTION_DOWN) {
-                if (state == READY || state == GAME_OVER) startGame();
-                addTouchPoint(e.getX(), e.getY(), false);
-                return true;
-            }
-            if (state != RUNNING) return true;
-            if (action == MotionEvent.ACTION_MOVE) {
-                for (int i = 0; i < e.getHistorySize(); i++) addTouchPoint(e.getHistoricalX(i), e.getHistoricalY(i), true);
-                addTouchPoint(e.getX(), e.getY(), true);
-                return true;
-            }
-            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
-                trail.clear();
-                return true;
-            }
-            return true;
-        }
-
-        void addTouchPoint(float x, float y, boolean cut) {
-            if (!trail.isEmpty() && cut) {
-                TrailPoint last = trail.get(trail.size() - 1);
-                sliceSegment(last.x, last.y, x, y);
-            }
-            trail.add(new TrailPoint(x, y));
-            while (trail.size() > 18) trail.remove(0);
-        }
-
-        void sliceSegment(float x1, float y1, float x2, float y2) {
-            if (dist(x1, y1, x2, y2) < 3f) return;
-            int hit = 0;
-            for (int i = fruits.size() - 1; i >= 0; i--) {
-                Fruit f = fruits.get(i);
-                if (distanceToSegment(f.x, f.y, x1, y1, x2, y2) <= f.r + 20f) {
-                    fruits.remove(i);
-                    if (f.bomb) {
-                        burst(f.x, f.y, 0xffff5a5f, 38, true);
-                        shake = 0.85f;
-                        gameOver();
-                        return;
-                    } else {
-                        hit++;
-                        combo++;
-                        comboTimer = 1.05f;
-                        int gain = 1 + Math.max(0, combo - 1) / 2;
-                        score += gain;
-                        spawnPieces(f);
-                        burst(f.x, f.y, f.color(), 20, false);
-                        play(ToneGenerator.TONE_PROP_BEEP, 45);
-                        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
-                    }
-                }
-            }
-            if (hit > 1) {
-                score += hit;
-                message = "COMBO x" + hit;
-                messageTimer = 0.75f;
-            }
-        }
-
-        void spawnPieces(Fruit f) {
-            for (int side = -1; side <= 1; side += 2) {
-                Piece s = new Piece();
-                s.x = f.x; s.y = f.y; s.r = f.r; s.type = f.type; s.side = side; s.color = f.color();
-                s.vx = f.vx * 0.45f + side * (160f + rnd.nextFloat() * 80f);
-                s.vy = f.vy * 0.12f - 120f - rnd.nextFloat() * 90f;
-                s.rot = f.rot; s.spin = side * (4f + rnd.nextFloat() * 5f);
-                pieces.add(s);
-            }
-        }
-
-        void burst(float x, float y, int color, int count, boolean hot) {
-            for (int i = 0; i < count; i++) {
-                float a = rnd.nextFloat() * 6.28318f;
-                float speed = (hot ? 260f : 120f) + rnd.nextFloat() * (hot ? 360f : 210f);
-                Particle part = new Particle();
-                part.x = x; part.y = y; part.vx = (float)Math.cos(a) * speed; part.vy = (float)Math.sin(a) * speed;
-                part.r = hot ? 5f + rnd.nextFloat() * 10f : 4f + rnd.nextFloat() * 8f;
-                part.life = hot ? 0.7f + rnd.nextFloat() * 0.45f : 0.45f + rnd.nextFloat() * 0.35f;
-                part.color = color;
-                particles.add(part);
-            }
-        }
-
-        void fadeTrail(float dt) {
-            for (int i = trail.size() - 1; i >= 0; i--) {
-                TrailPoint t = trail.get(i);
-                t.life -= dt * 2.6f;
-                if (t.life <= 0) trail.remove(i);
-            }
-        }
-
-        void drawGame(Canvas c) {
-            c.save();
-            if (shake > 0) {
-                float m = 12f * shake;
-                c.translate(-m + rnd.nextFloat() * 2f * m, -m + rnd.nextFloat() * 2f * m);
-            }
-            drawBackground(c);
-            for (Piece s : pieces) s.draw(c, p);
-            for (Fruit f : fruits) f.draw(c, p);
-            for (Particle part : particles) part.draw(c, p);
-            drawTrail(c);
-            c.restore();
-            drawHud(c);
-        }
-
-        void drawBackground(Canvas c) {
-            int w = getWidth(), h = getHeight();
-            p.setStyle(Paint.Style.FILL);
-            p.setShader(new LinearGradient(0, 0, 0, h, 0xff111827, 0xff16213f, Shader.TileMode.CLAMP));
-            c.drawRect(0, 0, w, h, p);
-            p.setShader(null);
-            p.setColor(0x18ffffff);
-            for (int i = 0; i < 12; i++) {
-                float x = (i * 173 + 51) % Math.max(1, w);
-                float y = (i * 257 + 99) % Math.max(1, h);
-                c.drawCircle(x, y, 2 + (i % 4), p);
-            }
-            p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(2f);
-            p.setColor(0x18ffffff);
-            for (int i = 0; i < 6; i++) c.drawCircle(w * 0.5f, h * 0.15f, 90 + i * 72, p);
-            p.setStyle(Paint.Style.FILL);
-        }
-
-        void drawTrail(Canvas c) {
-            if (trail.size() < 2) return;
-            Path path = new Path();
-            TrailPoint first = trail.get(0);
-            path.moveTo(first.x, first.y);
-            for (int i = 1; i < trail.size(); i++) path.lineTo(trail.get(i).x, trail.get(i).y);
-            p.setStyle(Paint.Style.STROKE);
-            p.setStrokeCap(Paint.Cap.ROUND);
-            p.setStrokeJoin(Paint.Join.ROUND);
-            p.setStrokeWidth(20f);
-            p.setColor(0x55ffffff);
-            c.drawPath(path, p);
-            p.setStrokeWidth(8f);
-            p.setColor(0xeeffffff);
-            c.drawPath(path, p);
-            p.setStyle(Paint.Style.FILL);
-        }
-
-        void drawHud(Canvas c) {
-            int w = getWidth(), h = getHeight();
-            text.setShader(null);
-            text.setTextAlign(Paint.Align.LEFT);
-            text.setTextSize(46f);
-            text.setColor(0xffffffff);
-            c.drawText("Score " + score, 28, 62, text);
-            text.setTextSize(28f);
-            text.setColor(0xffcbd5e1);
-            c.drawText("Best " + best + "   Lv." + level, 30, 101, text);
-            text.setTextAlign(Paint.Align.RIGHT);
-            text.setTextSize(42f);
-            text.setColor(0xffff6b6b);
-            c.drawText(hearts(), w - 28, 64, text);
-            if (combo > 1 && comboTimer > 0) {
-                text.setTextAlign(Paint.Align.CENTER);
-                text.setTextSize(34f + Math.min(18f, combo * 2f));
-                text.setColor(0xffffdd55);
-                c.drawText("连击 x" + combo, w / 2f, 112, text);
-            }
-            if (messageTimer > 0 && message.length() > 0) {
-                text.setTextAlign(Paint.Align.CENTER);
-                text.setTextSize(42f);
-                text.setColor(0xffffffff);
-                c.drawText(message, w / 2f, h * 0.24f, text);
-            }
-            if (state == READY) drawCenterPanel(c, "SLICE RUSH", "滑动切开水果，避开炸弹", "点击或滑动开始");
-            else if (state == GAME_OVER) drawCenterPanel(c, "游戏结束", "得分 " + score + "    最高 " + best, "点击重新开始");
-        }
-
-        String hearts() {
-            StringBuilder b = new StringBuilder();
-            for (int i = 0; i < lives; i++) b.append('♥');
-            return b.toString();
-        }
-
-        void drawCenterPanel(Canvas c, String title, String subtitle, String hint) {
-            float w = getWidth(), h = getHeight();
-            RectF card = new RectF(w * 0.08f, h * 0.35f, w * 0.92f, h * 0.62f);
-            p.setStyle(Paint.Style.FILL);
-            p.setColor(0xbb000000);
-            c.drawRoundRect(card, 34, 34, p);
-            p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(3);
-            p.setColor(0x55ffffff);
-            c.drawRoundRect(card, 34, 34, p);
-            p.setStyle(Paint.Style.FILL);
-            text.setTextAlign(Paint.Align.CENTER);
-            text.setColor(0xffffffff);
-            text.setTextSize(60f);
-            c.drawText(title, w / 2f, card.top + 78f, text);
-            text.setTextSize(31f);
-            text.setColor(0xffdbeafe);
-            c.drawText(subtitle, w / 2f, card.top + 132f, text);
-            text.setTextSize(30f);
-            text.setColor(0xffffdd55);
-            c.drawText(hint, w / 2f, card.top + 188f, text);
-        }
-
-        void play(int tone, int ms) {
-            try { if (tones != null) tones.startTone(tone, ms); } catch (Throwable ignored) {}
-        }
-
-        float dist(float x1, float y1, float x2, float y2) {
-            return (float)Math.hypot(x2 - x1, y2 - y1);
-        }
-
-        float distanceToSegment(float px, float py, float x1, float y1, float x2, float y2) {
-            float dx = x2 - x1, dy = y2 - y1;
-            float len = dx * dx + dy * dy;
-            if (len <= 0.001f) return dist(px, py, x1, y1);
-            float t = Math.max(0f, Math.min(1f, ((px - x1) * dx + (py - y1) * dy) / len));
-            return dist(px, py, x1 + t * dx, y1 + t * dy);
-        }
-    }
-
-    static class TrailPoint {
-        float x, y, life = 1f;
-        TrailPoint(float x, float y) { this.x = x; this.y = y; }
-    }
-
-    static class Fruit {
-        float x, y, vx, vy, gravity, r, rot, spin;
-        int type;
-        boolean bomb;
-        void update(float dt) { x += vx * dt; y += vy * dt; vy += gravity * dt; rot += spin * dt; }
-        int color() {
-            int[] colors = {0xffef4444, 0xffffcc33, 0xff22c55e, 0xffff7a18, 0xffa855f7};
-            return colors[type % colors.length];
-        }
-        void draw(Canvas c, Paint p) {
-            c.save(); c.translate(x, y); c.rotate(rot * 57.2958f);
-            p.setStyle(Paint.Style.FILL);
-            if (bomb) drawBomb(c, p); else drawFruit(c, p);
-            c.restore();
-        }
-        void drawFruit(Canvas c, Paint p) {
-            p.setColor(color());
-            if (type == 2) {
-                c.drawOval(new RectF(-r, -r * 0.78f, r, r * 0.78f), p);
-                p.setColor(0xff14532d); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(6f);
-                c.drawArc(new RectF(-r * 0.75f, -r * 0.62f, r * 0.75f, r * 0.62f), 200, 140, false, p);
-                c.drawArc(new RectF(-r * 0.45f, -r * 0.62f, r * 0.45f, r * 0.62f), 200, 140, false, p);
-                p.setStyle(Paint.Style.FILL);
-            } else {
-                c.drawOval(new RectF(-r, -r * 0.82f, r, r * 0.82f), p);
-            }
-            p.setColor(0x55ffffff);
-            c.drawCircle(-r * 0.32f, -r * 0.25f, r * 0.20f, p);
-            p.setColor(0x77000000);
-            c.drawArc(new RectF(-r, -r * 0.82f, r, r * 0.82f), 25, 100, true, p);
-            p.setColor(0xff166534);
-            c.drawOval(new RectF(r * 0.05f, -r * 1.22f, r * 0.65f, -r * 0.72f), p);
-            p.setColor(0xff7c2d12);
-            c.drawRect(-4, -r * 1.07f, 4, -r * 0.70f, p);
-        }
-        void drawBomb(Canvas c, Paint p) {
-            RadialGradient g = new RadialGradient(-r * .25f, -r * .3f, r * 1.2f, 0xff4b5563, 0xff050505, Shader.TileMode.CLAMP);
-            p.setShader(g); c.drawCircle(0, 0, r, p); p.setShader(null);
-            p.setColor(0xff9ca3af); c.drawCircle(-r * 0.25f, -r * 0.28f, r * 0.18f, p);
-            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(7f); p.setColor(0xffffdd55);
-            c.drawArc(new RectF(-r * 0.2f, -r * 1.35f, r * 1.25f, -r * 0.25f), 190, 115, false, p);
-            p.setStyle(Paint.Style.FILL); p.setColor(0xffff7a18); c.drawCircle(r * 0.78f, -r * 1.05f, r * 0.14f, p);
-        }
-    }
-
-    static class Piece {
-        float x, y, vx, vy, r, rot, spin, life = 1.35f;
-        int side, type, color;
-        void update(float dt) { x += vx * dt; y += vy * dt; vy += 860f * dt; rot += spin * dt; life -= dt; }
-        void draw(Canvas c, Paint p) {
-            c.save(); c.translate(x, y); c.rotate(rot * 57.2958f);
-            p.setStyle(Paint.Style.FILL); p.setColor((Math.max(0, Math.min(255, (int)(life / 1.35f * 255))) << 24) | (color & 0x00ffffff));
-            RectF oval = side < 0 ? new RectF(-r, -r * .78f, 0, r * .78f) : new RectF(0, -r * .78f, r, r * .78f);
-            c.drawOval(oval, p);
-            p.setColor(0x66ffffff); c.drawCircle(side < 0 ? -r * .35f : r * .35f, -r * .22f, r * .14f, p);
-            c.restore();
-        }
-    }
-
-    static class Particle {
-        float x, y, vx, vy, r, life;
-        int color;
-        void update(float dt) { x += vx * dt; y += vy * dt; vy += 520f * dt; life -= dt; }
-        void draw(Canvas c, Paint p) {
-            int a = Math.max(0, Math.min(255, (int)(life * 360f)));
-            p.setStyle(Paint.Style.FILL); p.setColor((a << 24) | (color & 0x00ffffff));
-            c.drawCircle(x, y, r, p);
-        }
-    }
+  static class Half{float x,y,vx,vy,rad,rot,spin,life=1.1f;boolean left;int type;void update(float dt){x+=vx*dt;y+=vy*dt;vy+=840*dt;rot+=spin*dt;life-=dt;}void draw(Canvas c,Paint p){c.save();c.translate(x,y);c.rotate(rot);int a=Math.max(0,Math.min(255,(int)(life/1.1f*255)));RectF o=new RectF(left?-rad:0,-rad*.78f,left?0:rad,rad*.78f);p.setStyle(Paint.Style.FILL);int col=type==Fruit.PINE?Color.argb(a,248,198,65):type==Fruit.MELON?Color.argb(a,68,184,50):type==Fruit.APPLE?Color.argb(a,244,98,118):Color.argb(a,255,150,107);p.setColor(col);c.drawOval(o,p);p.setColor(Color.argb(a,255,245,235));c.drawRect(new RectF(left?-rad*.12f:0,-rad*.7f,left?0:rad*.12f,rad*.7f),p);c.restore();}}
+  static class Part{float x,y,vx,vy,rad,life;int col;void update(float dt){x+=vx*dt;y+=vy*dt;vy+=540*dt;life-=dt;}void draw(Canvas c,Paint p){int a=Math.max(0,Math.min(255,(int)(life*300)));p.setStyle(Paint.Style.FILL);p.setColor((a<<24)|(col&0x00ffffff));c.drawCircle(x,y,rad,p);}}
 }
