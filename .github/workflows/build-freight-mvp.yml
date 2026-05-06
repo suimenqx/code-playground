@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/build-freight-mvp.yml'
+      - 'FreightMVP_BUILD_NOTE.md'
   push:
     paths:
       - '.github/workflows/build-freight-mvp.yml'
@@ -24,12 +25,21 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
-      - name: Generate native Android MVP project
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Generate Chinese native Android freight MVP
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p FreightMVP/app/src/main/java/com/example/freightmvp
+          mkdir -p FreightMVP/app/src/main/res/values
+
           cat > FreightMVP/settings.gradle <<'EOF'
           pluginManagement {
               repositories {
@@ -38,21 +48,30 @@ jobs:
                   gradlePluginPortal()
               }
           }
-          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
           rootProject.name = 'FreightMVP'
           include ':app'
           EOF
+
           cat > FreightMVP/build.gradle <<'EOF'
           plugins {
               id 'com.android.application' version '8.5.2' apply false
           }
           EOF
+
           cat > FreightMVP/app/build.gradle <<'EOF'
           plugins { id 'com.android.application' }
 
           android {
               namespace 'com.example.freightmvp'
               compileSdk 35
+
               defaultConfig {
                   applicationId 'com.example.freightmvp'
                   minSdk 23
@@ -60,11 +79,39 @@ jobs:
                   versionCode 1
                   versionName '1.0.0'
               }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
           }
           EOF
+
+          cat > FreightMVP/app/src/main/res/values/strings.xml <<'EOF'
+          <resources>
+              <string name="app_name">货运平台</string>
+          </resources>
+          EOF
+
+          cat > FreightMVP/app/src/main/res/values/styles.xml <<'EOF'
+          <resources>
+              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:fontFamily">sans</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  <item name="android:statusBarColor">#0D47A1</item>
+                  <item name="android:navigationBarColor">#FFFFFF</item>
+                  <item name="android:colorAccent">#1565C0</item>
+              </style>
+          </resources>
+          EOF
+
           cat > FreightMVP/app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application android:theme="@style/AppTheme" android:label="货运MVP" android:allowBackup="true" android:resizeableActivity="true">
+              <application
+                  android:theme="@style/AppTheme"
+                  android:label="@string/app_name"
+                  android:allowBackup="true"
+                  android:resizeableActivity="true">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -74,53 +121,232 @@ jobs:
               </application>
           </manifest>
           EOF
-          mkdir -p FreightMVP/app/src/main/res/values
-          cat > FreightMVP/app/src/main/res/values/styles.xml <<'EOF'
-          <resources>
-              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:colorAccent">#1565C0</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:statusBarColor">#0D47A1</item>
-              </style>
-          </resources>
-          EOF
+
           cat > FreightMVP/app/src/main/java/com/example/freightmvp/MainActivity.java <<'EOF'
           package com.example.freightmvp;
 
-          import android.app.*;import android.os.*;import android.graphics.Color;import android.graphics.Typeface;import android.view.*;import android.content.*;import android.widget.*;import java.util.*;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.graphics.Color;
+          import android.graphics.Typeface;
+          import android.view.Gravity;
+          import android.view.View;
+          import android.widget.Button;
+          import android.widget.EditText;
+          import android.widget.LinearLayout;
+          import android.widget.ScrollView;
+          import android.widget.TextView;
+          import android.widget.Toast;
+          import java.util.ArrayList;
 
-          public class MainActivity extends Activity{
-            LinearLayout root,content,tabs; ArrayList<Cargo> cargos=new ArrayList<>(); ArrayList<Order> orders=new ArrayList<>(); int blue=Color.rgb(21,101,192);
-            static class Cargo{String from,to,goods,weight,price,vehicle,phone,note; Cargo(String f,String t,String g,String w,String p,String v,String ph,String n){from=f;to=t;goods=g;weight=w;price=p;vehicle=v;phone=ph;note=n;}}
-            static class Order{Cargo c;String status;Order(Cargo c,String s){this.c=c;status=s;}}
-            public void onCreate(Bundle b){super.onCreate(b);seed();build();showHome();}
-            void seed(){cargos.add(new Cargo("上海","杭州","电子配件","8吨","¥2600","9.6米厢式","13800000001","今日装货，到付可议"));cargos.add(new Cargo("深圳","广州","生鲜冷链","5吨","¥1800","冷藏车","13800000002","温控 2-8℃"));cargos.add(new Cargo("苏州","成都","家具整车","18吨","¥8600","13米高栏","13800000003","需绑带雨布"));orders.add(new Order(cargos.get(1),"运输中"));}
-            TextView tv(String s,int sp,int c,int style){TextView v=new TextView(this);v.setText(s);v.setTextSize(sp);v.setTextColor(c);v.setTypeface(Typeface.DEFAULT,style);v.setPadding(24,14,24,14);return v;}
-            void build(){root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);setContentView(root);TextView title=tv("货运平台 MVP",22,Color.WHITE,Typeface.BOLD);title.setBackgroundColor(blue);root.addView(title,new LinearLayout.LayoutParams(-1,-2));content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);ScrollView sv=new ScrollView(this);sv.addView(content);root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));tabs=new LinearLayout(this);tabs.setOrientation(LinearLayout.HORIZONTAL);root.addView(tabs,new LinearLayout.LayoutParams(-1,-2));tab("货源",v->showHome());tab("发布",v->showPost());tab("订单",v->showOrders());tab("我的",v->showMe());}
-            void tab(String s,View.OnClickListener l){TextView t=tv(s,16,blue,Typeface.BOLD);t.setGravity(Gravity.CENTER);t.setOnClickListener(l);tabs.addView(t,new LinearLayout.LayoutParams(0,-2,1));}
-            void clear(){content.removeAllViews();}
-            void showHome(){clear();content.addView(tv("货源大厅",20,Color.DKGRAY,Typeface.BOLD));for(Cargo c:cargos)card(c);}
-            void card(Cargo c){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(18,18,18,18);box.setBackgroundColor(Color.rgb(245,248,252));TextView route=tv(c.from+" → "+c.to,18,blue,Typeface.BOLD);box.addView(route);box.addView(tv(c.goods+"｜"+c.weight+"｜"+c.vehicle,15,Color.DKGRAY,Typeface.NORMAL));box.addView(tv(c.price+"｜联系人 "+c.phone,15,Color.rgb(230,81,0),Typeface.BOLD));Button b=new Button(this);b.setText("查看并接单");b.setOnClickListener(v->detail(c));box.addView(b);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(20,12,20,12);content.addView(box,lp);}
-            void detail(Cargo c){clear();content.addView(tv(c.from+" → "+c.to,22,blue,Typeface.BOLD));content.addView(tv("货物："+c.goods,16,Color.DKGRAY,0));content.addView(tv("重量："+c.weight,16,Color.DKGRAY,0));content.addView(tv("车型："+c.vehicle,16,Color.DKGRAY,0));content.addView(tv("报价："+c.price,16,Color.rgb(230,81,0),Typeface.BOLD));content.addView(tv("联系人："+c.phone,16,Color.DKGRAY,0));content.addView(tv("备注："+c.note,16,Color.DKGRAY,0));Button take=new Button(this);take.setText("确认接单");take.setOnClickListener(v->{orders.add(new Order(c,"待装货"));Toast.makeText(this,"接单成功，已加入我的订单",Toast.LENGTH_LONG).show();showOrders();});content.addView(take);Button back=new Button(this);back.setText("返回货源大厅");back.setOnClickListener(v->showHome());content.addView(back);}
-            EditText input(String hint){EditText e=new EditText(this);e.setHint(hint);e.setPadding(24,8,24,8);content.addView(e,new LinearLayout.LayoutParams(-1,-2));return e;}
-            void showPost(){clear();content.addView(tv("发布货源",20,Color.DKGRAY,Typeface.BOLD));EditText f=input("出发地，如 上海");EditText t=input("目的地，如 杭州");EditText g=input("货物名称");EditText w=input("重量，如 10吨");EditText p=input("报价，如 ¥3000");EditText v=input("车型，如 9.6米厢式");Button post=new Button(this);post.setText("发布到货源大厅");post.setOnClickListener(x->{Cargo c=new Cargo(f.getText().toString(),t.getText().toString(),g.getText().toString(),w.getText().toString(),p.getText().toString(),v.getText().toString(),"本机模拟","本地模拟数据，无需服务器");cargos.add(0,c);Toast.makeText(this,"发布成功",Toast.LENGTH_SHORT).show();showHome();});content.addView(post);}
-            void showOrders(){clear();content.addView(tv("我的订单",20,Color.DKGRAY,Typeface.BOLD));if(orders.isEmpty())content.addView(tv("暂无订单",16,Color.GRAY,0));for(Order o:orders){content.addView(tv(o.status+"｜"+o.c.from+" → "+o.c.to+"｜"+o.c.price,16,blue,Typeface.BOLD));content.addView(tv(o.c.goods+"｜"+o.c.weight+"｜"+o.c.vehicle,14,Color.DKGRAY,0));}}
-            void showMe(){clear();content.addView(tv("我的",20,Color.DKGRAY,Typeface.BOLD));content.addView(tv("司机：张师傅（已认证）",16,Color.DKGRAY,0));content.addView(tv("车辆：粤B·MVP88｜9.6米厢式",16,Color.DKGRAY,0));content.addView(tv("钱包余额：¥12,860",16,Color.rgb(230,81,0),Typeface.BOLD));content.addView(tv("说明：本版本为离线 MVP，后端数据均在本地内存模拟。",15,Color.GRAY,0));}
+          public class MainActivity extends Activity {
+              private LinearLayout root;
+              private LinearLayout content;
+              private LinearLayout tabs;
+              private final ArrayList<Cargo> cargos = new ArrayList<>();
+              private final ArrayList<Order> orders = new ArrayList<>();
+              private final int blue = Color.rgb(21, 101, 192);
+              private final int orange = Color.rgb(230, 81, 0);
+
+              static class Cargo {
+                  String from, to, goods, weight, price, vehicle, phone, note;
+                  Cargo(String from, String to, String goods, String weight, String price, String vehicle, String phone, String note) {
+                      this.from = from; this.to = to; this.goods = goods; this.weight = weight;
+                      this.price = price; this.vehicle = vehicle; this.phone = phone; this.note = note;
+                  }
+              }
+
+              static class Order {
+                  Cargo cargo;
+                  String status;
+                  Order(Cargo cargo, String status) { this.cargo = cargo; this.status = status; }
+              }
+
+              @Override public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  seedData();
+                  buildLayout();
+                  showHome();
+              }
+
+              private void seedData() {
+                  cargos.add(new Cargo("上海", "杭州", "电子配件", "8 吨", "¥2600", "9.6 米厢式", "13800000001", "今日装货，到付可议"));
+                  cargos.add(new Cargo("深圳", "广州", "生鲜冷链", "5 吨", "¥1800", "冷藏车", "13800000002", "温控 2-8℃，优先认证司机"));
+                  cargos.add(new Cargo("苏州", "成都", "家具整车", "18 吨", "¥8600", "13 米高栏", "13800000003", "需绑带雨布，明早装车"));
+                  cargos.add(new Cargo("宁波", "武汉", "日用品", "12 吨", "¥5200", "17.5 米平板", "13800000004", "可配货，装卸各 2 小时"));
+                  orders.add(new Order(cargos.get(1), "运输中"));
+              }
+
+              private TextView text(String value, int sp, int color, int style) {
+                  TextView view = new TextView(this);
+                  view.setText(value);
+                  view.setTextSize(sp);
+                  view.setTextColor(color);
+                  view.setTypeface(Typeface.DEFAULT, style);
+                  view.setPadding(24, 14, 24, 14);
+                  return view;
+              }
+
+              private void buildLayout() {
+                  root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  setContentView(root);
+
+                  TextView title = text("货运平台", 22, Color.WHITE, Typeface.BOLD);
+                  title.setBackgroundColor(blue);
+                  title.setGravity(Gravity.CENTER_VERTICAL);
+                  root.addView(title, new LinearLayout.LayoutParams(-1, -2));
+
+                  content = new LinearLayout(this);
+                  content.setOrientation(LinearLayout.VERTICAL);
+                  ScrollView scroll = new ScrollView(this);
+                  scroll.addView(content);
+                  root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+                  tabs = new LinearLayout(this);
+                  tabs.setOrientation(LinearLayout.HORIZONTAL);
+                  tabs.setBackgroundColor(Color.WHITE);
+                  root.addView(tabs, new LinearLayout.LayoutParams(-1, -2));
+
+                  addTab("货源", v -> showHome());
+                  addTab("发布", v -> showPost());
+                  addTab("订单", v -> showOrders());
+                  addTab("我的", v -> showProfile());
+              }
+
+              private void addTab(String label, View.OnClickListener listener) {
+                  TextView tab = text(label, 16, blue, Typeface.BOLD);
+                  tab.setGravity(Gravity.CENTER);
+                  tab.setOnClickListener(listener);
+                  tabs.addView(tab, new LinearLayout.LayoutParams(0, -2, 1));
+              }
+
+              private void clear() { content.removeAllViews(); }
+
+              private void showHome() {
+                  clear();
+                  content.addView(text("货源大厅", 20, Color.DKGRAY, Typeface.BOLD));
+                  content.addView(text("本版本使用本地模拟数据，无需服务器。", 14, Color.GRAY, Typeface.NORMAL));
+                  for (Cargo cargo : cargos) addCargoCard(cargo);
+              }
+
+              private void addCargoCard(Cargo cargo) {
+                  LinearLayout box = new LinearLayout(this);
+                  box.setOrientation(LinearLayout.VERTICAL);
+                  box.setPadding(18, 18, 18, 18);
+                  box.setBackgroundColor(Color.rgb(245, 248, 252));
+                  box.addView(text(cargo.from + " → " + cargo.to, 18, blue, Typeface.BOLD));
+                  box.addView(text(cargo.goods + "｜" + cargo.weight + "｜" + cargo.vehicle, 15, Color.DKGRAY, Typeface.NORMAL));
+                  box.addView(text(cargo.price + "｜联系人 " + cargo.phone, 15, orange, Typeface.BOLD));
+                  Button button = new Button(this);
+                  button.setText("查看详情并接单");
+                  button.setOnClickListener(v -> showDetail(cargo));
+                  box.addView(button);
+                  LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+                  params.setMargins(20, 12, 20, 12);
+                  content.addView(box, params);
+              }
+
+              private void showDetail(Cargo cargo) {
+                  clear();
+                  content.addView(text("货源详情", 20, Color.DKGRAY, Typeface.BOLD));
+                  content.addView(text(cargo.from + " → " + cargo.to, 22, blue, Typeface.BOLD));
+                  content.addView(text("货物：" + cargo.goods, 16, Color.DKGRAY, Typeface.NORMAL));
+                  content.addView(text("重量：" + cargo.weight, 16, Color.DKGRAY, Typeface.NORMAL));
+                  content.addView(text("车型：" + cargo.vehicle, 16, Color.DKGRAY, Typeface.NORMAL));
+                  content.addView(text("报价：" + cargo.price, 16, orange, Typeface.BOLD));
+                  content.addView(text("联系人：" + cargo.phone, 16, Color.DKGRAY, Typeface.NORMAL));
+                  content.addView(text("备注：" + cargo.note, 16, Color.DKGRAY, Typeface.NORMAL));
+                  Button take = new Button(this);
+                  take.setText("确认接单");
+                  take.setOnClickListener(v -> {
+                      orders.add(new Order(cargo, "待装货"));
+                      Toast.makeText(this, "接单成功，已加入我的订单", Toast.LENGTH_LONG).show();
+                      showOrders();
+                  });
+                  content.addView(take);
+                  Button back = new Button(this);
+                  back.setText("返回货源大厅");
+                  back.setOnClickListener(v -> showHome());
+                  content.addView(back);
+              }
+
+              private EditText input(String hint) {
+                  EditText edit = new EditText(this);
+                  edit.setHint(hint);
+                  edit.setSingleLine(true);
+                  edit.setPadding(24, 8, 24, 8);
+                  content.addView(edit, new LinearLayout.LayoutParams(-1, -2));
+                  return edit;
+              }
+
+              private void showPost() {
+                  clear();
+                  content.addView(text("发布货源", 20, Color.DKGRAY, Typeface.BOLD));
+                  EditText from = input("出发地，例如：上海");
+                  EditText to = input("目的地，例如：杭州");
+                  EditText goods = input("货物名称，例如：家电");
+                  EditText weight = input("重量，例如：10 吨");
+                  EditText price = input("报价，例如：¥3000");
+                  EditText vehicle = input("车型，例如：9.6 米厢式");
+                  Button post = new Button(this);
+                  post.setText("发布到货源大厅");
+                  post.setOnClickListener(v -> {
+                      String fromText = valueOrDefault(from, "本地");
+                      String toText = valueOrDefault(to, "目的地");
+                      Cargo cargo = new Cargo(
+                              fromText,
+                              toText,
+                              valueOrDefault(goods, "普通货物"),
+                              valueOrDefault(weight, "待确认"),
+                              valueOrDefault(price, "面议"),
+                              valueOrDefault(vehicle, "不限车型"),
+                              "本机模拟",
+                              "本地模拟数据，无需服务器"
+                      );
+                      cargos.add(0, cargo);
+                      Toast.makeText(this, "发布成功", Toast.LENGTH_SHORT).show();
+                      showHome();
+                  });
+                  content.addView(post);
+              }
+
+              private String valueOrDefault(EditText editText, String fallback) {
+                  String value = editText.getText().toString().trim();
+                  return value.length() == 0 ? fallback : value;
+              }
+
+              private void showOrders() {
+                  clear();
+                  content.addView(text("我的订单", 20, Color.DKGRAY, Typeface.BOLD));
+                  if (orders.isEmpty()) {
+                      content.addView(text("暂无订单", 16, Color.GRAY, Typeface.NORMAL));
+                      return;
+                  }
+                  for (Order order : orders) {
+                      content.addView(text(order.status + "｜" + order.cargo.from + " → " + order.cargo.to + "｜" + order.cargo.price, 16, blue, Typeface.BOLD));
+                      content.addView(text(order.cargo.goods + "｜" + order.cargo.weight + "｜" + order.cargo.vehicle, 14, Color.DKGRAY, Typeface.NORMAL));
+                  }
+              }
+
+              private void showProfile() {
+                  clear();
+                  content.addView(text("我的", 20, Color.DKGRAY, Typeface.BOLD));
+                  content.addView(text("司机：张师傅（已认证）", 16, Color.DKGRAY, Typeface.NORMAL));
+                  content.addView(text("车辆：粤B·MVP88｜9.6 米厢式", 16, Color.DKGRAY, Typeface.NORMAL));
+                  content.addView(text("钱包余额：¥12,860", 16, orange, Typeface.BOLD));
+                  content.addView(text("认证状态：驾驶证、行驶证、道路运输证均为模拟已认证", 15, Color.DKGRAY, Typeface.NORMAL));
+                  content.addView(text("说明：这是离线 MVP，货源、接单和订单数据均为本地模拟。", 15, Color.GRAY, Typeface.NORMAL));
+              }
           }
           EOF
 
-      - name: Install Gradle
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gradle
-
       - name: Build debug APK
         working-directory: FreightMVP
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FreightMVP-debug-apk
+          name: 货运平台-debug-apk
           path: FreightMVP/app/build/outputs/apk/debug/*.apk
