@@ -9,6 +9,7 @@ import android.widget.*;
 
 public class ImprovedMainActivity extends MainActivity {
     String avatarUri = "";
+    long profileTapAt = 0;
 
     View profileAvatarView() {
         avatarUri = get("avatar", "");
@@ -32,6 +33,14 @@ public class ImprovedMainActivity extends MainActivity {
         it.addCategory(Intent.CATEGORY_OPENABLE);
         it.setType("image/*");
         startActivityForResult(it, 8);
+    }
+
+    void bindDoubleTapEdit(View v) {
+        v.setOnClickListener(x -> {
+            long now = System.currentTimeMillis();
+            if (now - profileTapAt < 420) editDriver();
+            profileTapAt = now;
+        });
     }
 
     TextView verifiedNameTag() {
@@ -92,6 +101,43 @@ public class ImprovedMainActivity extends MainActivity {
         parent.addView(box, boxLp);
     }
 
+    void bindSwipeBack(View v) {
+        final float[] sx = new float[1], sy = new float[1];
+        final boolean[] swiping = new boolean[1];
+        v.setOnTouchListener((view, e) -> {
+            int a = e.getActionMasked();
+            if (a == MotionEvent.ACTION_DOWN) {
+                sx[0] = e.getX();
+                sy[0] = e.getY();
+                swiping[0] = false;
+                return true;
+            }
+            if (a == MotionEvent.ACTION_MOVE) {
+                float dx = e.getX() - sx[0], dy = e.getY() - sy[0];
+                if (Math.abs(dx) > dp(10) && Math.abs(dx) > Math.abs(dy) * 1.4f) {
+                    swiping[0] = true;
+                    view.getParent().requestDisallowInterceptTouchEvent(true);
+                }
+                return swiping[0];
+            }
+            if (a == MotionEvent.ACTION_UP) {
+                float dx = e.getX() - sx[0], dy = e.getY() - sy[0];
+                view.getParent().requestDisallowInterceptTouchEvent(false);
+                if (swiping[0] && dx < -dp(64) && Math.abs(dx) > Math.abs(dy) * 1.4f) {
+                    showMe();
+                    return true;
+                }
+                if (!swiping[0] && Math.abs(dx) < dp(8) && Math.abs(dy) < dp(8)) return false;
+                return swiping[0];
+            }
+            if (a == MotionEvent.ACTION_CANCEL) {
+                view.getParent().requestDisallowInterceptTouchEvent(false);
+                return swiping[0];
+            }
+            return false;
+        });
+    }
+
     @Override
     void initData() {
         super.initData();
@@ -112,6 +158,7 @@ public class ImprovedMainActivity extends MainActivity {
         header("我的", "司机中心");
 
         LinearLayout profile = card();
+        bindDoubleTapEdit(profile);
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
@@ -122,10 +169,12 @@ public class ImprovedMainActivity extends MainActivity {
 
         LinearLayout info = new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
+        bindDoubleTapEdit(info);
 
         LinearLayout nameRow = new LinearLayout(this);
         nameRow.setOrientation(LinearLayout.HORIZONTAL);
         nameRow.setGravity(Gravity.CENTER_VERTICAL);
+        bindDoubleTapEdit(nameRow);
         nameRow.addView(tv(driverName, 22, deep, Typeface.BOLD), new LinearLayout.LayoutParams(-2, -2));
         LinearLayout.LayoutParams verifiedLp = new LinearLayout.LayoutParams(dp(64), dp(28));
         verifiedLp.setMargins(dp(6), 0, 0, 0);
@@ -135,12 +184,6 @@ public class ImprovedMainActivity extends MainActivity {
         info.addView(tv(driverCompany, 14, muted, 0));
         info.addView(tv(driverVehicle + "｜核载 " + driverCapacity, 14, muted, 0));
         top.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
-
-        TextView edit = tv("编辑", 13, blue, Typeface.BOLD);
-        edit.setGravity(Gravity.CENTER);
-        edit.setBackground(st(Color.rgb(239, 246, 255), 16, 1, Color.rgb(197, 215, 247)));
-        edit.setOnClickListener(v -> editDriver());
-        top.addView(edit, new LinearLayout.LayoutParams(dp(64), dp(36)));
         profile.addView(top);
 
         addCertificationRow(profile);
@@ -161,6 +204,66 @@ public class ImprovedMainActivity extends MainActivity {
             }
         }
         if (shown == 0) content.addView(tv("暂无" + ("全部".equals(billFilter) ? "运单" : billFilter + "运单"), 15, muted, 0));
+    }
+
+    @Override
+    void waybillDetail(Waybill w) {
+        screen = "billDetail";
+        clear("我的");
+        header("运单详情", w.no);
+        bindSwipeBack(content);
+
+        LinearLayout sb = card();
+        bindSwipeBack(sb);
+        LinearLayout sr = new LinearLayout(this);
+        sr.setOrientation(LinearLayout.HORIZONTAL);
+        sb.addView(sr);
+        chip(sr, w, "待装货");
+        chip(sr, w, "运输中");
+        chip(sr, w, "已完成");
+
+        LinearLayout d = card();
+        bindSwipeBack(d);
+        d.addView(tv(w.status + "｜" + w.c.from + " → " + w.c.to, 20, blue, Typeface.BOLD));
+        row(d, "货主", w.c.owner + "｜" + w.c.company);
+        row(d, "联系电话", w.c.phone);
+        row(d, "货物", w.c.goods);
+        row(d, "车辆要求", w.c.vehicle);
+        row(d, "运费", w.c.price);
+        row(d, "结算方式", w.c.settle);
+        row(d, "收货方", w.c.receiver);
+        row(d, "备注", w.c.note);
+
+        sec("榜单信息");
+        LinearLayout bill = card();
+        bindSwipeBack(bill);
+        row(bill, "装货位置", w.c.load);
+        row(bill, "装货吨数", w.c.weight);
+        row(bill, "装货时间", w.c.time);
+        Button up = lbtn(w.img == null ? "上传本地榜单图片" : "更换榜单图片");
+        up.setOnClickListener(v -> {
+            pending = w;
+            Intent it = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            it.addCategory(Intent.CATEGORY_OPENABLE);
+            it.setType("image/*");
+            startActivityForResult(it, 7);
+        });
+        bill.addView(up, new LinearLayout.LayoutParams(-1, dp(44)));
+        if (w.img != null) {
+            ImageView im = new ImageView(this);
+            im.setImageURI(w.img);
+            im.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            im.setOnClickListener(v -> showImage(w.img));
+            bill.addView(im, new LinearLayout.LayoutParams(-1, dp(190)));
+        }
+
+        sec("运输信息");
+        LinearLayout t = card();
+        bindSwipeBack(t);
+        row(t, "承运司机", driverName);
+        row(t, "车牌号", plateNo);
+        row(t, "司机电话", driverPhone);
+        row(t, "车辆信息", driverVehicle + "｜" + driverCapacity);
     }
 
     @Override
