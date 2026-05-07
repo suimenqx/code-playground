@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+rm -rf upstream-fruitninja dist-opensource-fruit-game
 git clone --depth 1 https://github.com/emmaguy/FruitNinja.git upstream-fruitninja
 cd upstream-fruitninja
 echo "Upstream commit: $(git rev-parse HEAD)" > UPSTREAM_VERSION.txt
@@ -51,9 +52,16 @@ p.write_text(s)
 PY
 
 gradle assembleDebug
+find build/outputs/apk -type f -name '*.apk' -print
 cd ..
 mkdir -p dist-opensource-fruit-game
-cp upstream-fruitninja/build/outputs/apk/debug/upstream-fruitninja-debug.apk dist-opensource-fruit-game/OpenSource-FruitGame-debug.apk
+apk_path=$(find upstream-fruitninja/build/outputs/apk -type f -name '*.apk' | head -n 1)
+if [ -z "$apk_path" ]; then
+  echo "No APK produced"
+  find upstream-fruitninja/build -maxdepth 6 -type f | sort
+  exit 1
+fi
+cp "$apk_path" dist-opensource-fruit-game/OpenSource-FruitGame-debug.apk
 cp upstream-fruitninja/LICENSE dist-opensource-fruit-game/LICENSE-Apache-2.0.txt
 cp upstream-fruitninja/README.md dist-opensource-fruit-game/README-upstream.md
 cp upstream-fruitninja/UPSTREAM_VERSION.txt dist-opensource-fruit-game/UPSTREAM_VERSION.txt
