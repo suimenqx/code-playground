@@ -3,6 +3,6 @@ plugins { id 'com.android.application' }
 android {
     namespace 'com.bubuyun.driver'
     compileSdk 35
-    defaultConfig { applicationId 'com.bubuyun.driver'; minSdk 23; targetSdk 35; versionCode 16; versionName '1.1.6' }
+    defaultConfig { applicationId 'com.bubuyun.driver'; minSdk 23; targetSdk 35; versionCode 17; versionName '1.1.7' }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
