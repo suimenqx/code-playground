@@ -34,22 +34,62 @@ public class ImprovedMainActivity extends MainActivity {
         startActivityForResult(it, 8);
     }
 
-    TextView badge(String text, int color) {
+    TextView verifiedNameTag() {
+        TextView tag = tv("已认证", 12, green, Typeface.BOLD);
+        tag.setGravity(Gravity.CENTER);
+        tag.setSingleLine(true);
+        tag.setBackground(st(Color.rgb(236, 253, 245), 12, 1, green));
+        return tag;
+    }
+
+    TextView certPill(String text, int color) {
         TextView b = tv("✓ " + text, 12, color, Typeface.BOLD);
         b.setGravity(Gravity.CENTER);
-        b.setBackground(st(Color.WHITE, 12, 1, color));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, dp(28));
-        lp.setMargins(0, dp(4), dp(6), 0);
-        b.setLayoutParams(lp);
+        b.setSingleLine(true);
+        b.setBackground(st(Color.WHITE, 14, 1, color));
         return b;
+    }
+
+    void addCertificationRow(LinearLayout parent) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setPadding(dp(2), dp(12), dp(2), dp(4));
+        String[] labels = {"实名认证", "车辆认证", "平台优选"};
+        int[] colors = {green, blue, orange};
+        for (int i = 0; i < labels.length; i++) {
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(36), 1);
+            lp.setMargins(dp(3), 0, dp(3), 0);
+            row.addView(certPill(labels[i], colors[i]), lp);
+        }
+        parent.addView(row);
     }
 
     TextView truckPlate() {
         TextView p = tv(plateNo, 18, Color.BLACK, Typeface.BOLD);
         p.setGravity(Gravity.CENTER);
+        p.setSingleLine(true);
         p.setLetterSpacing(0.08f);
         p.setBackground(st(Color.rgb(255, 205, 35), 8, 2, Color.BLACK));
         return p;
+    }
+
+    void addPlateBlock(LinearLayout parent) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(12), dp(10), dp(12), dp(10));
+        box.setBackground(st(Color.rgb(250, 252, 255), 14, 1, Color.rgb(226, 233, 246)));
+        LinearLayout.LayoutParams boxLp = new LinearLayout.LayoutParams(-1, -2);
+        boxLp.setMargins(0, dp(10), 0, dp(4));
+
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView label = tv("牵引车号牌", 13, muted, 0);
+        label.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(label, new LinearLayout.LayoutParams(0, dp(42), 1));
+        row.addView(truckPlate(), new LinearLayout.LayoutParams(dp(154), dp(42)));
+        box.addView(row);
+        parent.addView(box, boxLp);
     }
 
     @Override
@@ -72,21 +112,28 @@ public class ImprovedMainActivity extends MainActivity {
         header("我的", "司机中心");
 
         LinearLayout profile = card();
+
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
         top.setOrientation(LinearLayout.HORIZONTAL);
-        top.addView(profileAvatarView(), new LinearLayout.LayoutParams(dp(66), dp(66)));
+        LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(dp(66), dp(66));
+        avatarLp.setMargins(0, 0, dp(12), 0);
+        top.addView(profileAvatarView(), avatarLp);
 
         LinearLayout info = new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
-        info.addView(tv(driverName, 22, deep, Typeface.BOLD));
-        info.addView(tv(driverCompany + "｜" + driverVehicle + "｜载重 " + driverCapacity, 14, muted, 0));
-        LinearLayout badges = new LinearLayout(this);
-        badges.setOrientation(LinearLayout.HORIZONTAL);
-        badges.addView(badge("实名认证", green));
-        badges.addView(badge("车辆认证", blue));
-        badges.addView(badge("平台优选", orange));
-        info.addView(badges);
+
+        LinearLayout nameRow = new LinearLayout(this);
+        nameRow.setOrientation(LinearLayout.HORIZONTAL);
+        nameRow.setGravity(Gravity.CENTER_VERTICAL);
+        nameRow.addView(tv(driverName, 22, deep, Typeface.BOLD), new LinearLayout.LayoutParams(-2, -2));
+        LinearLayout.LayoutParams verifiedLp = new LinearLayout.LayoutParams(dp(64), dp(28));
+        verifiedLp.setMargins(dp(6), 0, 0, 0);
+        nameRow.addView(verifiedNameTag(), verifiedLp);
+        info.addView(nameRow);
+
+        info.addView(tv(driverCompany, 14, muted, 0));
+        info.addView(tv(driverVehicle + "｜核载 " + driverCapacity, 14, muted, 0));
         top.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
 
         TextView edit = tv("编辑", 13, blue, Typeface.BOLD);
@@ -96,14 +143,8 @@ public class ImprovedMainActivity extends MainActivity {
         top.addView(edit, new LinearLayout.LayoutParams(dp(64), dp(36)));
         profile.addView(top);
 
-        LinearLayout plateRow = new LinearLayout(this);
-        plateRow.setGravity(Gravity.CENTER_VERTICAL);
-        plateRow.setPadding(dp(8), dp(8), dp(8), dp(4));
-        plateRow.addView(tv("牵引车号牌", 13, muted, 0));
-        LinearLayout.LayoutParams plateLp = new LinearLayout.LayoutParams(dp(146), dp(42));
-        plateLp.setMargins(dp(8), 0, 0, 0);
-        plateRow.addView(truckPlate(), plateLp);
-        profile.addView(plateRow);
+        addCertificationRow(profile);
+        addPlateBlock(profile);
         profile.addView(tv("手机号：" + driverPhone, 15, muted, 0));
 
         LinearLayout walletCard = card();
